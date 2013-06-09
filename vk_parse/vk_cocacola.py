@@ -144,11 +144,11 @@ class RuDate(ComparableMixin):
             return ('01','01','1980')  
                
     def get(self):
-        return self.dat
+        return self.date
     def _cmpkey(self):
         return int(self.y)*10000 + int(self.m)*100 + int(self.d)
     def __repr__(self):
-        return self.dat
+        return self.date
 
 def items_list_wall(n, topic, topic_text, getvar, last=0, d=50):
     global topics, dates
@@ -202,7 +202,7 @@ def items_list_wall(n, topic, topic_text, getvar, last=0, d=50):
         nn = ni
 
         #print 'dat:', dat, 'nn,last:', nn,last
-        if dd >= RuDate(u'4 июн') and nn > last:  
+        if dd >= RuDate(u'9 июн') and nn > last:  
             items[nn] = ( dat, topic_text, topic, author, aURL, msg, msgURL, likes )
             topics[topic]['lastN'] = nn
             topics[topic]['count'] += 1
@@ -361,17 +361,17 @@ def itertopics(picklefile, newpic=True):
         topics['topic-16297716_28124405'] = {'offset':'offset', 'name':u'КОЛЛЕКЦИЯ СТАКАНОВ COCA-COLA «СОЧИ 2014», обмен с другими участниками группы'}
         topics['topic-16297716_22922336'] = {'offset':'offset', 'name':u'ПРИЗЫ ОТ COCA-COLA, вопросы и обсуждения'}
         topics['topic-16297716_28039770']['firstN'] = 105737
-        topics['topic-16297716_28039770']['lastN'] = 109672#107482#106434 #107482
+        topics['topic-16297716_28039770']['lastN'] = 110544#109672#107482#106434 #107482
         topics['topic-16297716_28039770']['offset'] = 20 * (587 - 1)
         topics['topic-16297716_28039770']['do'] = 1 
         topics['topic-16297716_28039770']['count'] = 0 
         topics['topic-16297716_28124405']['firstN'] = 105815
-        topics['topic-16297716_28124405']['lastN'] = 109673#107442#106393 #107442
+        topics['topic-16297716_28124405']['lastN'] = 110544#109673#107442#106393 #107442
         topics['topic-16297716_28124405']['offset'] = 20 * (18 - 1)
         topics['topic-16297716_28124405']['do'] = 1
         topics['topic-16297716_28124405']['count'] = 0
         topics['topic-16297716_22922336']['firstN'] = 105762
-        topics['topic-16297716_22922336']['lastN'] = 109635#107470#106435 #107470
+        topics['topic-16297716_22922336']['lastN'] = 110544#109635#107470#106435 #107470
         topics['topic-16297716_22922336']['offset'] = 20 * (347 - 1)
         topics['topic-16297716_22922336']['do'] = 1
         topics['topic-16297716_22922336']['count'] = 0
@@ -382,12 +382,12 @@ def itertopics(picklefile, newpic=True):
         topics['wall-16297716_192063']['firstN'] = 0
         topics['wall-16297716_192063']['lastN'] = 0
         topics['wall-16297716_192063']['offset'] = 0
-        topics['wall-16297716_192063']['do'] = 0
+        topics['wall-16297716_192063']['do'] = 1
         topics['wall-16297716_192063']['count'] = 0
         topics['wall-16297716_201030']['firstN'] = 0
         topics['wall-16297716_201030']['lastN'] = 0
         topics['wall-16297716_201030']['offset'] = 0
-        topics['wall-16297716_201030']['do'] = 0
+        topics['wall-16297716_201030']['do'] = 1
         topics['wall-16297716_201030']['count'] = 0
         topics['wall-16297716_197832']['firstN'] = 0
         topics['wall-16297716_197832']['lastN'] = 0
@@ -397,7 +397,7 @@ def itertopics(picklefile, newpic=True):
         topics['wall-16297716_202374']['firstN'] = 0
         topics['wall-16297716_202374']['lastN'] = 0
         topics['wall-16297716_202374']['offset'] = 0
-        topics['wall-16297716_202374']['do'] = 0
+        topics['wall-16297716_202374']['do'] = 1
         topics['wall-16297716_202374']['count'] = 0
         
         o = open( f, 'wb' )
