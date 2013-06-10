@@ -46,6 +46,19 @@ def dbclose( database=False ):
         database.commit()
         database.close()
 
+def dbcreate(dbfile):
+    conn = sqlite3.connect(dbfile)
+    qry = open('cocacola.sql', 'r').read()
+    c = conn.cursor()
+    for st in qry.split(';'):
+        st = st.strip()
+        if len(st) == 0 or 'commit' in st.lower():
+            continue
+        c.execute(st)
+    conn.commit()
+    conn.close()
+    return dbopen( dbfile )
+
 def gethtml( n, topic, getvar='offset' ):
     url = "http://vk.com/" \
           + topic + "?%s=%d" % (getvar, n) 
@@ -110,9 +123,12 @@ class ComparableMixin(object):
     def __ne__(self, other):        return self._compare(other, lambda s, o: s != o)
     
 class RuDate(ComparableMixin):
-    def __init__(self, s):
+    def __init__(self, s=None, dat=None):
         self.ms = MoscowTime()
-        (self.d, self.m, self.y) = self.dat_parse(s)
+        if dat == None:
+            (self.d, self.m, self.y) = self.dat_parse(s)
+        else:
+            (self.d, self.m, self.y) = dat.split('.')
         self.date = "%s.%s.%s" % (self.d, self.m, self.y)
         self.dbdate = "%s-%s-%s" % (self.y, self.m, self.d )
         
@@ -145,12 +161,42 @@ class RuDate(ComparableMixin):
                
     def get(self):
         return self.date
+    def db(self):
+        return self.dbdate
     def _cmpkey(self):
         return int(self.y)*10000 + int(self.m)*100 + int(self.d)
     def __repr__(self):
         return self.date
 
-def items_list_wall(n, topic, topic_text, getvar, last=0, d=50):
+def dbset(dbsqli, topics, topic=None):
+    if topic:
+        if 'wall' in topic:
+            table = 'walls'
+        elif 'topic' in topic:
+            table = "topics"
+        elif 'albom' in topic:
+            print "alboms does not supported"
+            sys.exit(1)
+        else:
+            print "wrong topic:", topic
+            sys.exit(1)
+        dbsqli.execute( 'select count(*) from %s where id="%s"' % (table, topic))
+        (n,) = dbsqli.fetchone()
+        if n:
+            sql = "UPDATE %s SET " % table
+            sql += " "
+            sql += " where id=%s" % topic
+        else:
+            sql = "INSERT into %s (id, title, url, begin_date, last_date, first_message, last_message, last_time, offset) " % (table)
+            sql += " VALUES (?,?,?,?,?,?,?,?,?)" 
+        
+    return
+
+def add_record(dbsqli, nn, dd, tt, topic_text, topic, author, aURL, msg, msgURL, likes):
+    sql = ""
+    return
+
+def items_list_wall(dbsqli, n, topic, topic_text, getvar, last=0, d=50):
     global topics, dates
     detr = BS( gethtml(n, topic, getvar) )
     [detr.script.extract() for s in detr.findAll( 'script' )]
@@ -189,7 +235,7 @@ def items_list_wall(n, topic, topic_text, getvar, last=0, d=50):
         aURL, author = pi_author[i+1].attrMap['href'], pi_author[i+1].text
         
         dt = dat.split(u' в ')
-        dd = RuDate(dt[0])
+        dd = RuDate(s=dt[0])
         tt = dt[1]
         msg = pi_body[i+1].findChild('div', {'class':'pi_text',})
         if None == msg: msg = '<picture>'
@@ -202,8 +248,9 @@ def items_list_wall(n, topic, topic_text, getvar, last=0, d=50):
         nn = ni
 
         #print 'dat:', dat, 'nn,last:', nn,last
-        if dd >= RuDate(u'9 июн') and nn > last:  
-            items[nn] = ( dat, topic_text, topic, author, aURL, msg, msgURL, likes )
+        if dd >= RuDate(dat = '10.06.2013') and nn > last:  
+            add_record(dbsqli, nn, dd.get(), tt, topic_text, topic, author, aURL, msg, msgURL, likes)
+            items[nn] = ( topic_text, topic, nn, dd.get(), author, aURL, msg, msgURL, likes )
             topics[topic]['lastN'] = nn
             topics[topic]['count'] += 1
             count += 1
@@ -225,7 +272,7 @@ def items_list_wall(n, topic, topic_text, getvar, last=0, d=50):
         topics[topic]['offset'] += d
     return (stop, count, nf,nn,dat)
 
-def items_list(n, topic, topic_text, getvar, last=0, d=20):
+def items_list(dbsqli, n, topic, topic_text, getvar, last=0, d=20):
     global topics, dates
     detr = BS( gethtml(n, topic, getvar) )
     [detr.script.extract() for s in detr.findAll( 'script' )]
@@ -261,14 +308,15 @@ def items_list(n, topic, topic_text, getvar, last=0, d=20):
                 #print at.text
                 ai = item.find('a', {'class':'item_date'})
                 dt = ai.text.split(u' в ')
-                dd = RuDate(dt[0])
+                dd = RuDate(s=dt[0])
                 tt = dt[1]
                 #print ai.attrMap['href'], ai.text
                 if at == None:
                     at = item.find('div', {'class':'pi_body'})
                 tt = ai.text
                 if nn > last:
-                    items[nn] = ( ai.text, topic_text, topic, aa.text, aa['href'], at.text, ai.attrMap['href'], 0 )
+                    add_record(dbsqli, nn, dd.get(), tt, topic_text, topic, aa.text, aa['href'], at.text, ai.attrMap['href'], 0)
+                    items[nn] = ( topic_text, topic, nn, dd.get(), aa.text, aa['href'], at.text, ai.attrMap['href'], 0 )
                     topics[topic]['lastN'] = nn
                     topics[topic]['count'] += 1
                     count += 1
@@ -289,12 +337,12 @@ def items_list(n, topic, topic_text, getvar, last=0, d=20):
     return (stop, count, nf,nn,tt)
 
 limit = 99999
-def fulllist(n, topic, topic_text, getvar, last=0):
+def fulllist(dbsqli, n, topic, topic_text, getvar, last=0):
     global limit, topics
     if 'wall' in topic: flist, d = items_list_wall, 50
     else: flist, d = items_list, 20
     while True:
-        stop, count, nf,nl,last_date = flist(n, topic, topic_text, getvar, last=last, d=d)
+        stop, count, nf,nl,last_date = flist(dbsqli, n, topic, topic_text, getvar, last=last, d=d)
         if stop:
             print 'stop:', count,  topics[topic]['count'],  topics[topic]['offset'], 'items:', len(items)
             print '\n'
@@ -318,7 +366,7 @@ def print_items(ofile, title=False):
         f_topics.write(u'')
         f_walls.write(u'')
         if title:
-            titles = (u'#',u'Дата комментария',u'Тема дискуссии',u'URL дискуссии',
+            titles = (u'Тема дискуссии',u'URL дискуссии', u'#',u'Дата комментария',
                       u'Автор комментария',u'URL автора',u'Текст комментария',u'URL комментария','Likes',
                       u'Тон (негатив, позитив, нейтральный)',u'Упоминание Coca-Cola',u'Привязка к теме поста (да/нет)',
                       u'Является ли вопросом (да/нет)',u'Тема комментария',u'Комментарий ПМ/КМ')
@@ -330,11 +378,10 @@ def print_items(ofile, title=False):
     for k in sorted(items.keys()):
         #print
         #print k, "%s \n%s\n%s\n%s\n%s" % items[k]
-        s = u"%d" % k
-        s += u'|%s|%s|http://vk.com/%s|%s|http://vk.com%s|%s|http://vk.com%s|%s| \n' % items[k]
-        if 'topic' in items[k][2]:
+        s = u'%s|http://vk.com/%s|%d|%s|%s|http://vk.com%s|%s|http://vk.com%s|%s|\n' % items[k]
+        if 'topic' in items[k][1]:
             f_topics.write(s)
-        elif 'wall' in items[k][2]:
+        elif 'wall' in items[k][1]:
             f_walls.write(s)
         else:
             print '>>> invalid record:', items[k][2]
@@ -353,7 +400,7 @@ def print_items(ofile, title=False):
     
 
 
-def itertopics(picklefile, newpic=True):
+def itertopics(dbsqli, picklefile, newpic=True):
     global topics
     f = picklefile + '.pkl'
     if newpic or True:
@@ -361,17 +408,17 @@ def itertopics(picklefile, newpic=True):
         topics['topic-16297716_28124405'] = {'offset':'offset', 'name':u'КОЛЛЕКЦИЯ СТАКАНОВ COCA-COLA «СОЧИ 2014», обмен с другими участниками группы'}
         topics['topic-16297716_22922336'] = {'offset':'offset', 'name':u'ПРИЗЫ ОТ COCA-COLA, вопросы и обсуждения'}
         topics['topic-16297716_28039770']['firstN'] = 105737
-        topics['topic-16297716_28039770']['lastN'] = 110544#109672#107482#106434 #107482
+        topics['topic-16297716_28039770']['lastN'] = 111074#109672#107482#106434 #107482
         topics['topic-16297716_28039770']['offset'] = 20 * (587 - 1)
         topics['topic-16297716_28039770']['do'] = 1 
         topics['topic-16297716_28039770']['count'] = 0 
         topics['topic-16297716_28124405']['firstN'] = 105815
-        topics['topic-16297716_28124405']['lastN'] = 110544#109673#107442#106393 #107442
+        topics['topic-16297716_28124405']['lastN'] = 111074#109673#107442#106393 #107442
         topics['topic-16297716_28124405']['offset'] = 20 * (18 - 1)
         topics['topic-16297716_28124405']['do'] = 1
         topics['topic-16297716_28124405']['count'] = 0
         topics['topic-16297716_22922336']['firstN'] = 105762
-        topics['topic-16297716_22922336']['lastN'] = 110544#109635#107470#106435 #107470
+        topics['topic-16297716_22922336']['lastN'] = 111074#109635#107470#106435 #107470
         topics['topic-16297716_22922336']['offset'] = 20 * (347 - 1)
         topics['topic-16297716_22922336']['do'] = 1
         topics['topic-16297716_22922336']['count'] = 0
@@ -400,6 +447,7 @@ def itertopics(picklefile, newpic=True):
         topics['wall-16297716_202374']['do'] = 1
         topics['wall-16297716_202374']['count'] = 0
         
+        dbset(dbsqli, topics)
         o = open( f, 'wb' )
         pickle.dump( topics, o )
         o.close()
@@ -416,7 +464,7 @@ def itertopics(picklefile, newpic=True):
                 print t, topics[t]['offset'], topics[t]['lastN']
                 topics[t]['firstN'] = 0
                 topics[t]['count'] = 0
-                fulllist(topics[t]['offset'], t, topics[t]['name'], 'offset', topics[t]['lastN'])
+                fulllist(dbsqli, topics[t]['offset'], t, topics[t]['name'], 'offset', topics[t]['lastN'])
                 print 'count:', topics[t]['count']
     print 'End itertopics' 
     
@@ -450,9 +498,13 @@ def main():
     #                              'Albom', 0)
     
     here = os.getcwd()
-    database, dbsqli = dbopen( "cocacola.db")
-    global topics
+    global topics, dbsqli
     topics = {}
+
+    if os.path.exists("cocacola.db"):
+        database, dbsqli = dbopen( "cocacola.db")
+    else:
+        database, dbsqli = dbcreate( "cocacola.db")
     
     ofile = topic + ".csv"
     picklefile = 'output'
@@ -485,7 +537,7 @@ def main():
             add = True
 
     
-    itertopics(picklefile, newpic=newpic)
+    itertopics(dbsqli, picklefile, newpic=newpic)
     #fulllist(n, topic, topic_text, getvar, last)
     dbclose(database)
     print_items('ouput')
