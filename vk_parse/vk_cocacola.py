@@ -336,7 +336,7 @@ def items_list(dbsqli, n, topic, topic_text, getvar, last=0, d=20):
         print 'stop=True; offset:%d, count=%d, nn=%d, last=%d, d=%d' % ( topics[topic]['offset'], count, nn, last, d )
     return (stop, count, nf,nn,tt)
 
-limit = 999999
+limit = 99999
 def fulllist(dbsqli, n, topic, topic_text, getvar, last=0):
     global limit, topics
     if 'wall' in topic: flist, d = items_list_wall, 50
